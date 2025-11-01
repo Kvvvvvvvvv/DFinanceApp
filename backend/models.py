@@ -68,9 +68,9 @@ class Loan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     unique_data_id = db.Column(db.String(100), unique=True, nullable=False)
     borrower_id = db.Column(db.Integer, db.ForeignKey('borrowers.id'), nullable=False)
-    lender_id = db.Column(db.Integer, db.ForeignKey('lenders.id'), nullable=True)
+    lender_id = db.Column(db.Integer, db.ForeignKey('lenders.id'), nullable=True)  # Made nullable
     amount = db.Column(db.Float, nullable=False)
-    interest_rate = db.Column(db.Float, nullable=False)
+    interest_rate = db.Column(db.Float, nullable=True)  # Made nullable
     status = db.Column(db.String(20), default='requested')  # requested, approved, rejected, disbursed, paid, overdue
     due_date = db.Column(db.DateTime, nullable=True)
     disbursed_at = db.Column(db.DateTime, nullable=True)

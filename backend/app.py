@@ -274,26 +274,13 @@ def create_loan():
     if recent_loan:
         return jsonify({'success': False, 'message': 'Cannot request another loan within 24 hours'}), 400
     
-    # Find lenders who can fulfill this loan amount
-    lenders = Lender.query.filter(
-        Lender.min_amount <= amount,
-        Lender.max_amount >= amount
-    ).all()
-    
-    if not lenders:
-        return jsonify({'success': False, 'message': 'No lenders available for this amount'}), 400
-    
-    # Select the first available lender (in a real app, you might want a better algorithm)
-    lender = lenders[0]
-    
-    # Create loan
+    # Create loan without assigning a specific lender
     unique_data_id = str(uuid.uuid4()) + "_" + get_ist_time().isoformat()
     loan = Loan(
         unique_data_id=unique_data_id,
         borrower_id=borrower_id,
-        lender_id=lender.id,
         amount=amount,
-        interest_rate=lender.interest_rate,
+        # No lender assigned initially
         status='requested'
     )
     
@@ -304,7 +291,6 @@ def create_loan():
     create_block(unique_data_id, f"borrower_{borrower_id}", "Loan Requested", {
         "loan_id": loan.id,
         "amount": amount,
-        "lender_id": lender.id,
         "borrower_id": borrower_id
     })
     
@@ -319,6 +305,7 @@ def approve_loan(loan_id):
     data = request.get_json()
     status = data.get('status')  # approved or rejected
     lender_id = data.get('lender_id')
+    interest_rate = data.get('interest_rate')  # Get interest rate from request
     
     # Get loan
     loan = Loan.query.get(loan_id)
@@ -329,6 +316,7 @@ def approve_loan(loan_id):
     loan.status = status
     if status == 'approved':
         loan.lender_id = lender_id
+        loan.interest_rate = interest_rate  # Set the interest rate
         loan.disbursed_at = get_ist_time()
     
     db.session.commit()
@@ -380,6 +368,32 @@ def repay_loan(loan_id):
     })
     
     return jsonify({'success': True, 'message': 'Loan repaid successfully', 'credit_change': credit_change})
+
+# New endpoint to get all loan requests for lenders
+@app.route('/api/loans/requests', methods=['GET'])
+def get_loan_requests():
+    # Check if user is authorized (lenders and admins can view loan requests)
+    if session.get('role') not in ['admin', 'lender']:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    
+    # Get all requested loans
+    loans = Loan.query.filter(Loan.status == 'requested').all()
+    result = []
+    
+    for loan in loans:
+        borrower = Borrower.query.get(loan.borrower_id)
+        user = User.query.get(borrower.user_id) if borrower else None
+        
+        result.append({
+            'id': loan.id,
+            'borrower_name': user.name if user else 'Unknown',
+            'borrower_id': loan.borrower_id,
+            'amount': loan.amount,
+            'status': loan.status,
+            'created_at': loan.created_at.isoformat() if loan.created_at else None
+        })
+    
+    return jsonify({'success': True, 'loans': result})
 
 @app.route('/api/lenders/<int:lender_id>/loans', methods=['GET'])
 def get_lender_loans(lender_id):
