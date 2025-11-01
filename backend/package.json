@@ -1,0 +1,13 @@
+{
+  "name": "defi-loan-portal-backend",
+  "version": "1.0.0",
+  "description": "Backend for DeFi Loan Portal with Flask and SQLite",
+  "main": "app.py",
+  "scripts": {
+    "start": "python app.py",
+    "init-db": "python init_db.py"
+  },
+  "keywords": ["flask", "sqlite", "defi", "loan", "blockchain"],
+  "author": "DeFi Loan Portal Team",
+  "license": "MIT"
+}
