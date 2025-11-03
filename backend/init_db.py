@@ -23,7 +23,7 @@ def init_db():
         if not admin_user:
             # Create admin user
             admin = User(
-                name='Admin User',
+                name='keerthivasan',
                 email='admin@gmail.com',
                 password='1234',
                 role='admin'
@@ -33,8 +33,8 @@ def init_db():
             
             # Create sample lenders
             lender1 = User(
-                name='John Lender',
-                email='john@lender.com',
+                name='kv',
+                email='kv@lender.com',
                 password='1234',
                 role='lender',
                 wallet_address='0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
@@ -47,13 +47,14 @@ def init_db():
                 min_amount=100.0,
                 max_amount=10000.0,
                 interest_rate=7.5,
-                remarks='Preferred lender for small to medium loans'
+                remarks='Preferred lender for small to medium loans',
+                account_balance=150000.0
             )
             db.session.add(lender1_details)
             
             lender2 = User(
-                name='Jane Lender',
-                email='jane@lender.com',
+                name='gaurish',
+                email='gaurish@lender.com',
                 password='1234',
                 role='lender',
                 wallet_address='0x842d35Cc6634C0532925a3b844Bc454e4438f44f'
@@ -66,14 +67,15 @@ def init_db():
                 min_amount=5000.0,
                 max_amount=50000.0,
                 interest_rate=6.0,
-                remarks='Specializes in large loans'
+                remarks='Specializes in large loans',
+                account_balance=200000.0
             )
             db.session.add(lender2_details)
             
             # Create sample borrowers
             borrower1 = User(
-                name='Alice Borrower',
-                email='alice@borrower.com',
+                name='ashley',
+                email='ashley@borrower.com',
                 password='1234',
                 role='borrower',
                 wallet_address='0x942d35Cc6634C0532925a3b844Bc454e4438f44g'
@@ -83,13 +85,14 @@ def init_db():
             
             borrower1_details = Borrower(
                 user_id=borrower1.id,
-                credit_score=750
+                credit_score=750,
+                account_balance=75000.0
             )
             db.session.add(borrower1_details)
             
             borrower2 = User(
-                name='Bob Borrower',
-                email='bob@borrower.com',
+                name='maddy',
+                email='maddy@borrower.com',
                 password='1234',
                 role='borrower',
                 wallet_address='0xa42d35Cc6634C0532925a3b844Bc454e4438f44h'
@@ -99,7 +102,8 @@ def init_db():
             
             borrower2_details = Borrower(
                 user_id=borrower2.id,
-                credit_score=720
+                credit_score=720,
+                account_balance=60000.0
             )
             db.session.add(borrower2_details)
             

@@ -170,6 +170,7 @@ def get_lenders():
             'min_amount': lender.min_amount,
             'max_amount': lender.max_amount,
             'interest_rate': lender.interest_rate,
+            'account_balance': lender.account_balance,
             'remarks': lender.remarks,
             'created_at': lender.created_at.isoformat()
         })
@@ -193,6 +194,7 @@ def get_borrowers():
             'email': borrower.user.email,
             'wallet_address': borrower.user.wallet_address,
             'credit_score': borrower.credit_score,
+            'account_balance': borrower.account_balance,
             'created_at': borrower.created_at.isoformat()
         })
     
@@ -318,6 +320,18 @@ def approve_loan(loan_id):
         loan.lender_id = lender_id
         loan.interest_rate = interest_rate  # Set the interest rate
         loan.disbursed_at = get_ist_time()
+        
+        # Transfer funds from lender to borrower when loan is approved
+        lender = Lender.query.get(lender_id)
+        borrower = Borrower.query.get(loan.borrower_id)
+        
+        if lender and borrower:
+            # Check if lender has sufficient balance
+            if lender.account_balance >= loan.amount:
+                lender.account_balance -= loan.amount
+                borrower.account_balance += loan.amount
+            else:
+                return jsonify({'success': False, 'message': 'Lender has insufficient balance'}), 400
     
     db.session.commit()
     
@@ -357,6 +371,21 @@ def repay_loan(loan_id):
         credit_change -= 25  # Late repayment penalty
     
     borrower.credit_score += credit_change
+    
+    # Transfer funds from borrower to lender when loan is repaid
+    if loan.lender_id:
+        lender = Lender.query.get(loan.lender_id)
+        # Calculate total amount to be repaid (principal + interest)
+        interest_amount = loan.amount * (loan.interest_rate / 100)
+        total_repayment = loan.amount + interest_amount
+        
+        if borrower and lender:
+            # Check if borrower has sufficient balance
+            if borrower.account_balance >= total_repayment:
+                borrower.account_balance -= total_repayment
+                lender.account_balance += total_repayment
+            else:
+                return jsonify({'success': False, 'message': 'Borrower has insufficient balance for repayment'}), 400
     
     db.session.commit()
     
@@ -447,7 +476,8 @@ def get_current_borrower():
                 'name': user.name,
                 'email': user.email,
                 'wallet_address': user.wallet_address,
-                'credit_score': 750,  # Default credit score
+                'credit_score': 750,
+                'account_balance': 50000.0,
                 'created_at': get_ist_time().isoformat()
             }
         })
@@ -462,6 +492,7 @@ def get_current_borrower():
             'email': borrower.user.email,
             'wallet_address': borrower.user.wallet_address,
             'credit_score': borrower.credit_score,
+            'account_balance': borrower.account_balance,
             'created_at': borrower.created_at.isoformat() if borrower.created_at else get_ist_time().isoformat()
         }
     })
@@ -551,6 +582,63 @@ def verify_ledger():
         'is_valid': is_valid,
         'error_message': error_message if not is_valid else None
     })
+
+# New endpoint to add money to user account
+@app.route('/api/users/add-money', methods=['POST'])
+def add_money():
+    # Check if user is logged in
+    if not session.get('user_id'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    amount = data.get('amount')
+    
+    # Validate amount
+    if not amount or amount <= 0:
+        return jsonify({'success': False, 'message': 'Invalid amount'}), 400
+    
+    user_id = session.get('user_id')
+    user_role = session.get('role')
+    
+    try:
+        if user_role == 'lender':
+            # Get lender record
+            lender = Lender.query.filter_by(user_id=user_id).first()
+            if lender:
+                lender.account_balance += amount
+                db.session.commit()
+                return jsonify({
+                    'success': True, 
+                    'message': f'₹{amount} added successfully',
+                    'new_balance': lender.account_balance
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Lender record not found'}), 404
+                
+        elif user_role == 'borrower':
+            # Get borrower record
+            borrower = Borrower.query.filter_by(user_id=user_id).first()
+            if borrower:
+                borrower.account_balance += amount
+                db.session.commit()
+                return jsonify({
+                    'success': True, 
+                    'message': f'₹{amount} added successfully',
+                    'new_balance': borrower.account_balance
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Borrower record not found'}), 404
+                
+        elif user_role == 'admin':
+            # Admins don't have account balances in the current model
+            return jsonify({'success': False, 'message': 'Admins cannot add money'}), 400
+            
+        else:
+            return jsonify({'success': False, 'message': 'Invalid user role'}), 400
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Failed to add money: {str(e)}'}), 500
 
 if __name__ == '__main__':
     with app.app_context():

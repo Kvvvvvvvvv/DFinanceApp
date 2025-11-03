@@ -33,6 +33,7 @@ class Lender(db.Model):
     max_amount = db.Column(db.Float, default=10000.0)
     interest_rate = db.Column(db.Float, default=5.0)
     remarks = db.Column(db.Text, nullable=True)
+    account_balance = db.Column(db.Float, default=100000.0)  # Add account balance for lenders
     created_at = db.Column(db.DateTime, default=get_ist_time)
 
 # Borrower model
@@ -43,6 +44,7 @@ class Borrower(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     credit_score = db.Column(db.Integer, default=750)
     uploaded_collateral = db.Column(db.String(200), nullable=True)
+    account_balance = db.Column(db.Float, default=50000.0)  # Add account balance for borrowers
     created_at = db.Column(db.DateTime, default=get_ist_time)
     
     # Relationships
