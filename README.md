@@ -6,7 +6,6 @@
 ![Database](https://img.shields.io/badge/Database-SQLite-lightgrey)
 ![Blockchain](https://img.shields.io/badge/Feature-PseudoBlockchain-yellow)
 ![Docker](https://img.shields.io/badge/Container-Docker-blue)
-![Build](https://img.shields.io/github/actions/workflow/status/Kvvvvvvvvv/DFinanceApp/build.yml?label=Build%20Status)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
