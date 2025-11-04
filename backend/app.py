@@ -330,8 +330,14 @@ def approve_loan(loan_id):
             if lender.account_balance >= loan.amount:
                 lender.account_balance -= loan.amount
                 borrower.account_balance += loan.amount
+                
+                # Reduce borrower's credit score when loan is approved (as a form of credit check)
+                # Reduce by 25 points for taking a loan to reflect the risk
+                borrower.credit_score -= 25
             else:
                 return jsonify({'success': False, 'message': 'Lender has insufficient balance'}), 400
+        else:
+            return jsonify({'success': False, 'message': 'Lender or borrower not found'}), 404
     
     db.session.commit()
     
@@ -361,10 +367,10 @@ def repay_loan(loan_id):
     # Update borrower's credit score
     borrower = Borrower.query.get(loan.borrower_id)
     
-    # Calculate credit score change
+    # Calculate credit score change (increase when repaying loan)
     credit_change = 0
     if loan.repaid_at and loan.due_date and loan.repaid_at <= loan.due_date:
-        credit_change += 10  # On time repayment
+        credit_change += 15  # On time repayment bonus
         if loan.repaid_at < loan.due_date:
             credit_change += 5  # Early repayment bonus
     else:
