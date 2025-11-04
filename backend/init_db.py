@@ -118,6 +118,27 @@ def init_db():
             )
             db.session.add(sample_loan)
             
+            # Create a loan from Maddy (borrower) to Kv (lender) for demonstration
+            maddy_loan = Loan(
+                unique_data_id='maddy_loan_' + get_ist_time().isoformat(),
+                borrower_id=borrower2_details.id,  # Maddy's borrower id
+                lender_id=lender1_details.id,      # Kv's lender id
+                amount=5000.0,                     # Loan amount of ₹5000
+                interest_rate=7.5,                 # Interest rate of 7.5%
+                status='approved',                 # Approved status
+                disbursed_at=get_ist_time()        # Loan has been disbursed
+            )
+            db.session.add(maddy_loan)
+            
+            # Update account balances to reflect the loan transaction
+            # Kv's balance decreases by loan amount
+            lender1_details.account_balance -= 5000.0
+            # Maddy's balance increases by loan amount
+            borrower2_details.account_balance += 5000.0
+            
+            # Reduce Maddy's credit score as per our new system when loan is approved
+            borrower2_details.credit_score -= 25
+            
             # Create genesis block
             genesis_block = Block(
                 unique_data_id='genesis_block',

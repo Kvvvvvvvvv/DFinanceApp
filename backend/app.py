@@ -325,6 +325,10 @@ def approve_loan(loan_id):
         lender = Lender.query.get(lender_id)
         borrower = Borrower.query.get(loan.borrower_id)
         
+        # Get borrower name for better error messages
+        borrower_user = User.query.get(borrower.user_id) if borrower else None
+        borrower_name = borrower_user.name if borrower_user else 'Unknown Borrower'
+        
         if lender and borrower:
             # Check if lender has sufficient balance
             if lender.account_balance >= loan.amount:
@@ -337,7 +341,12 @@ def approve_loan(loan_id):
             else:
                 return jsonify({'success': False, 'message': 'Lender has insufficient balance'}), 400
         else:
-            return jsonify({'success': False, 'message': 'Lender or borrower not found'}), 404
+            if not lender and not borrower:
+                return jsonify({'success': False, 'message': f'Neither lender nor borrower found for loan of {borrower_name}'}), 404
+            elif not lender:
+                return jsonify({'success': False, 'message': f'Lender not found for loan of {borrower_name}'}), 404
+            else:  # not borrower
+                return jsonify({'success': False, 'message': f'Borrower {borrower_name} not found'}), 404
     
     db.session.commit()
     
@@ -367,6 +376,10 @@ def repay_loan(loan_id):
     # Update borrower's credit score
     borrower = Borrower.query.get(loan.borrower_id)
     
+    # Get borrower name for better error messages
+    borrower_user = User.query.get(borrower.user_id) if borrower else None
+    borrower_name = borrower_user.name if borrower_user else 'Unknown Borrower'
+    
     # Calculate credit score change (increase when repaying loan)
     credit_change = 0
     if loan.repaid_at and loan.due_date and loan.repaid_at <= loan.due_date:
@@ -391,7 +404,16 @@ def repay_loan(loan_id):
                 borrower.account_balance -= total_repayment
                 lender.account_balance += total_repayment
             else:
-                return jsonify({'success': False, 'message': 'Borrower has insufficient balance for repayment'}), 400
+                return jsonify({'success': False, 'message': f'{borrower_name} has insufficient balance for repayment'}), 400
+        else:
+            if not borrower and not lender:
+                return jsonify({'success': False, 'message': f'Neither borrower nor lender found for repayment of loan by {borrower_name}'}), 404
+            elif not borrower:
+                return jsonify({'success': False, 'message': f'Borrower {borrower_name} not found for loan repayment'}), 404
+            else:  # not lender
+                lender_user = User.query.get(lender.user_id) if lender else None
+                lender_name = lender_user.name if lender_user else 'Unknown Lender'
+                return jsonify({'success': False, 'message': f'Lender {lender_name} not found for loan repayment'}), 404
     
     db.session.commit()
     
@@ -589,6 +611,102 @@ def verify_ledger():
         'error_message': error_message if not is_valid else None
     })
 
+# New endpoint to get user details by name for demonstration
+@app.route('/api/users/name/<user_name>', methods=['GET'])
+def get_user_by_name(user_name):
+    try:
+        # Get user by name
+        user = User.query.filter_by(name=user_name).first()
+        if not user:
+            return jsonify({'success': False, 'message': f'User {user_name} not found'}), 404
+        
+        result = {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'role': user.role,
+            'wallet_address': user.wallet_address,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        }
+        
+        # Add role-specific details
+        if user.role == 'lender':
+            lender = Lender.query.filter_by(user_id=user.id).first()
+            if lender:
+                result['account_balance'] = lender.account_balance
+                result['min_amount'] = lender.min_amount
+                result['max_amount'] = lender.max_amount
+                result['interest_rate'] = lender.interest_rate
+                result['remarks'] = lender.remarks
+        elif user.role == 'borrower':
+            borrower = Borrower.query.filter_by(user_id=user.id).first()
+            if borrower:
+                result['account_balance'] = borrower.account_balance
+                result['credit_score'] = borrower.credit_score
+        
+        return jsonify({'success': True, 'user': result})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error retrieving user: {str(e)}'}), 500
+
+# New endpoint to get loan details between two users for demonstration
+@app.route('/api/loans/between/<lender_name>/<borrower_name>', methods=['GET'])
+def get_loan_between_users(lender_name, borrower_name):
+    try:
+        # Get lender and borrower users
+        lender_user = User.query.filter_by(name=lender_name, role='lender').first()
+        borrower_user = User.query.filter_by(name=borrower_name, role='borrower').first()
+        
+        if not lender_user:
+            return jsonify({'success': False, 'message': f'Lender {lender_name} not found'}), 404
+        
+        if not borrower_user:
+            return jsonify({'success': False, 'message': f'Borrower {borrower_name} not found'}), 404
+        
+        # Get lender and borrower records
+        lender = Lender.query.filter_by(user_id=lender_user.id).first()
+        borrower = Borrower.query.filter_by(user_id=borrower_user.id).first()
+        
+        if not lender:
+            return jsonify({'success': False, 'message': f'Lender record for {lender_name} not found'}), 404
+        
+        if not borrower:
+            return jsonify({'success': False, 'message': f'Borrower record for {borrower_name} not found'}), 404
+        
+        # Get loans between these users
+        loans = Loan.query.filter_by(lender_id=lender.id, borrower_id=borrower.id).all()
+        
+        result = []
+        for loan in loans:
+            result.append({
+                'id': loan.id,
+                'amount': loan.amount,
+                'interest_rate': loan.interest_rate,
+                'status': loan.status,
+                'created_at': loan.created_at.isoformat() if loan.created_at else None,
+                'disbursed_at': loan.disbursed_at.isoformat() if loan.disbursed_at else None,
+                'repaid_at': loan.repaid_at.isoformat() if loan.repaid_at else None
+            })
+        
+        # Also return current account balances
+        response_data = {
+            'loans': result,
+            'lender': {
+                'name': lender_user.name,
+                'account_balance': lender.account_balance
+            },
+            'borrower': {
+                'name': borrower_user.name,
+                'account_balance': borrower.account_balance,
+                'credit_score': borrower.credit_score
+            }
+        }
+        
+        return jsonify({'success': True, 'data': response_data})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error retrieving loan details: {str(e)}'}), 500
+
 # New endpoint to add money to user account
 @app.route('/api/users/add-money', methods=['POST'])
 def add_money():
@@ -610,6 +728,10 @@ def add_money():
         if user_role == 'lender':
             # Get lender record
             lender = Lender.query.filter_by(user_id=user_id).first()
+            # Get user name for better error messages
+            user = User.query.get(user_id)
+            user_name = user.name if user else 'Unknown User'
+            
             if lender:
                 lender.account_balance += amount
                 db.session.commit()
@@ -619,11 +741,15 @@ def add_money():
                     'new_balance': lender.account_balance
                 })
             else:
-                return jsonify({'success': False, 'message': 'Lender record not found'}), 404
+                return jsonify({'success': False, 'message': f'Lender record for {user_name} not found'}), 404
                 
         elif user_role == 'borrower':
             # Get borrower record
             borrower = Borrower.query.filter_by(user_id=user_id).first()
+            # Get user name for better error messages
+            user = User.query.get(user_id)
+            user_name = user.name if user else 'Unknown User'
+            
             if borrower:
                 borrower.account_balance += amount
                 db.session.commit()
@@ -633,7 +759,7 @@ def add_money():
                     'new_balance': borrower.account_balance
                 })
             else:
-                return jsonify({'success': False, 'message': 'Borrower record not found'}), 404
+                return jsonify({'success': False, 'message': f'Borrower record for {user_name} not found'}), 404
                 
         elif user_role == 'admin':
             # Admins don't have account balances in the current model
